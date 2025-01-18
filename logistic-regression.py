@@ -2,9 +2,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
-from sklearn import svm
-from sklearn.metrics import accuracy_score, roc_auc_score, matthews_corrcoef, f1_score, balanced_accuracy_score, RocCurveDisplay, auc, average_precision_score
+from sklearn.metrics import average_precision_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.linear_model import LogisticRegression
 import argparse
@@ -13,7 +11,7 @@ from sklearn.impute import SimpleImputer
 # load data
 def make_argparser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--data", help="Give the path to the kernel matrix.",
+    parser.add_argument("-d", "--data", help="Give the path to the dataset.",
                         type=str)
     parser.add_argument("-y", "--outcome", help="Give the path to the outcome vector.",
                         type=str)
@@ -28,31 +26,34 @@ X = X.values
 y = pd.read_csv(args.outcome)
 y = y.values.flatten()
 l = args.loss_error
+
+# cross-validation
 n_splits = 5
+cv = StratifiedKFold(n_splits=n_splits)
+
 # list of hyperparameters
 C = [0.5,0.75,1.0,1.25,1.5]
-# do cross validation with only the train set 
-cv = StratifiedKFold(n_splits=n_splits)
-# Assuming your data is a NumPy array or pandas DataFrame
-imputer = SimpleImputer(missing_values=-1, strategy='mean')  # Replace -1 with the mean of the column
+
+# impute missing data (represented as -1 in the data)
+imputer = SimpleImputer(missing_values=-1, strategy='mean')  
 X = imputer.fit_transform(X)
-# run SVM with the gram matrices
-clf = LogisticRegression(random_state=0,penalty=l,solver='saga',l1_ratio=0.5 if l == 'elasticnet' else None)
-mcc, balanced_accuracy, auc_scores, auc_pr_scores = [], [], [], []
+
+# AUC-PR scores
+auc_pr_scores = []
+
+# outer loop for performance evaluation
 for fold, (outer_train, outer_test) in enumerate(cv.split(X, y)):
-    # here starts the inner loop of the cross validation where we find the best hyperparameter setting
     mean_errors = []
+    X_train = X[outer_train]
+    y_train = y[outer_train]
     for parameter in C:
-		# loop through every parameter setting in C 
-        X_train = X[outer_train]
-        y_train = y[outer_train]
-        # split the training data from the outer loop into train and test 
+        # inner loop for hyperparameter fitting
         for fold, (inner_train, inner_test) in enumerate(cv.split(X_train, y_train)):
-            # initialize a logistic regression model with the specific hyperparameter setting
+	    errors = []
             clf = LogisticRegression(random_state=0,penalty=l,C = C[fold], solver='saga',l1_ratio=0.5 if l == 'elasticnet' else None)
-            errors = []
+	    # train classifier
             clf.fit(X[inner_train], y[inner_train])
-            # append errors for all folds of the inner cross validation
+            # append errors for inner folds
             errors.append(1 - clf.score(X_train[inner_test], y_train[inner_test]))
         # calculate the mean error for one hyperparameter setting
         mean_errors.append(np.mean(errors))
