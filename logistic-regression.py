@@ -55,30 +55,20 @@ for fold, (outer_train, outer_test) in enumerate(cv.split(X, y)):
             clf.fit(X[inner_train], y[inner_train])
             # append errors for inner folds
             errors.append(1 - clf.score(X_train[inner_test], y_train[inner_test]))
-        # calculate the mean error for one hyperparameter setting
         mean_errors.append(np.mean(errors))
-    # calculate the best hyperparameter setting (with the smallest mean error)
+    # calculate best hyperparameter
     min_error = min(mean_errors)
     best_hyperparameter = C[mean_errors.index(min_error)]
     print(best_hyperparameter)
-    # for every fold of the outer cross validation loop we use the best hyperparameters
-	# we train and fit our model on the outer_train and outer_test data    
+
     clf = LogisticRegression(random_state=0,penalty=l,solver='saga',C = best_hyperparameter, l1_ratio=0.5 if l == 'elasticnet' else None)
+    # train model
     clf.fit(X[outer_train], y[outer_train])
+    # predict on test set
     y_pred = clf.predict(X[outer_test])
 
-# calculate mean accuracy over all cross validation splits and its standard deviation
-    mcc.append(matthews_corrcoef(y[outer_test], y_pred))
-    balanced_accuracy.append(balanced_accuracy_score(y[outer_test], y_pred))
-    auc_scores.append(roc_auc_score(y[outer_test], y_pred))
+    # calculate AUC-PR scores on test set
     auc_pr_scores.append(average_precision_score(y[outer_test], y_pred))
 	
-# add some quality measures or visualization....
-print("mean matthews correlation coefficient: %.2f" % np.mean(mcc))
-print('SD for mcc: %.2f' % np.std(mcc))
-print("mean balanced accuracy: %.2f" % np.mean(balanced_accuracy))
-print('SD for balanced accuracy: %.2f' % np.std(balanced_accuracy))
-print("mean auc score: %.2f" % np.mean(auc_scores))
-print('SD for auc scores: %.2f' % np.std(auc_scores))
 print("mean auc_pr score: %.2f" % np.mean(auc_pr_scores))
 print('SD for auc_pr scores: %.2f' % np.std(auc_pr_scores))
