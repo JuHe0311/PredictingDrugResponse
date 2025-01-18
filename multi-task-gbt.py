@@ -6,26 +6,6 @@ from scipy.special import expit
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import StratifiedKFold
 
-def calculate_mcc(y_true, y_pred):
-    """
-    Calculate MCC 
-    
-    :param y_true: Array of true labels.
-    :param y_pred: Array of predicted labels.
-    :return: MCC value.
-    """
-    return matthews_corrcoef(y_true, y_pred)
-
-def calculate_auc(y_true, y_pred):
-    """
-    Calculate AUC score
-
-    :param y_true: Array of true labels.
-    :param y_pred: Array of predicted labels.
-    :return: AUC value.
-    """
-    return roc_auc_score(y_true, y_pred)
-
 def calculate_auc_pr(y_true, y_pred):
     """
     Calculate AUC score for the precision recall curve
@@ -335,12 +315,7 @@ class MultitaskAGBM:
                     test_predictions = self.shrinkage * tree.predict(X_test)
                     H_t_test[t].append(test_predictions)
                     H_t_test_indices[t].append(test_idx)
-                    #Ω_t[t].update(selected_features)  # Update task-specific feature set
-                    #Ω_G.update(selected_features)  # Update global feature set
                     
-            # replace feature set indices with column names          
-        #Ω_G = {X.columns[i]: importance for i, importance in Ω_G.items()}
-        #Ω_t = {t: {X.columns[i]: importance for i, importance in features.items()}}
         # replace feature set indices with column names          
         Ω_G = {X.columns[i]: importance for i, importance in Ω_G.items()}
         Ω_t = {t: {X.columns[i]: importance for i, importance in Ω_t[t].items()} for t in Ω_t.keys()}
@@ -350,36 +325,32 @@ class MultitaskAGBM:
 
 # Example Usage
 if __name__ == "__main__":
-    feature_file = '/home/julia.hellmig/reports/epipgx/complete/data/genecounts/log_regression_learning_data_filtered_alldrugs.csv'
-    outcome_file = '/home/julia.hellmig/reports/epipgx/complete/data/genecounts/log_regression_outcomes_filtered_alldrugs.csv'
-    # Specify one-hot encoded drug columns
-    '''one_hot_columns = ['D120_AED_GENERIC_ABBREV_CBZ','D120_AED_GENERIC_ABBREV_CLB',
-                       'D120_AED_GENERIC_ABBREV_ESM','D120_AED_GENERIC_ABBREV_GBP',
-                       'D120_AED_GENERIC_ABBREV_LEV','D120_AED_GENERIC_ABBREV_LTG','D120_AED_GENERIC_ABBREV_PB',
-                       'D120_AED_GENERIC_ABBREV_PHT','D120_AED_GENERIC_ABBREV_PRM','D120_AED_GENERIC_ABBREV_TPM',
-                       'D120_AED_GENERIC_ABBREV_VPA','D120_AED_GENERIC_ABBREV_ZNS']
-    '''
+    feature_file = 'insert_feature_filepath'
+    outcome_file = 'insert_outcome_filepath'
+    # Specify columns that indicate the task belonging of the sample
     one_hot_columns = ['D120_AED_GENERIC_ABBREV_CBZ',
                        'D120_AED_GENERIC_ABBREV_LEV','D120_AED_GENERIC_ABBREV_LTG','D120_AED_GENERIC_ABBREV_TPM',
                        'D120_AED_GENERIC_ABBREV_VPA']
+    # set hyperparameter mu_g and mu_t ranges for fitting
     mu_gs = [0.01,0.1]
     mu_ts = [0.1,0.5]
     for mu_g in mu_gs:
         for mu_t in mu_ts:
+            # sum must be < 1
             if mu_g + mu_t >= 1:
                 continue
             else:
+                # initiate model
                 model = MultitaskAGBM(shrinkage=0.1, iterations=20, alpha=0.02, mu_g=mu_g, mu_t=mu_t)
+                # extract tasks and task specific data
                 X, y, tasks = model.extract_tasks(feature_file, outcome_file, one_hot_columns)
+                # train model
                 H_t_test, H_t_test_indices, Ω_t, Ω_G = model.fit(X, y, tasks, n_splits=5)
-                print(mu_g,mu_t)
-                #print("Predictions for each task:", H_t_test)
+                # Print task-specific and global feature sets 
                 print("Task-specific feature sets:", Ω_t)
                 print("Global feature set:", Ω_G)
 
-            # Evaluate MCC and AUC
-            mcc_scores = {}
-            auc_scores = {}
+            # Calculate AUC-PR scores for each task
             auc_pr_scores = {}
             for t in H_t_test.keys():
                 # Combine test set predictions and true labels for all folds
@@ -390,10 +361,6 @@ if __name__ == "__main__":
                 y_pred_test_prob = expit(y_pred_test)
                 y_pred_test_bin = (y_pred_test_prob > 0.5).astype(int)  # Convert probabilities to binary predictions
 
-                # Calculate MCC for the task
-                mcc_scores[t] = calculate_mcc(y_true_test, y_pred_test_bin)
-                auc_scores[t] = calculate_auc(y_true_test, y_pred_test_bin)
+
                 auc_pr_scores[t] = calculate_auc_pr(y_true_test, y_pred_test_bin)
-            print("MCC Scores for each task:", mcc_scores)
-            print("AUC Scores for each task:", auc_scores)
             print("AUC PR Scores for each task:", auc_pr_scores)
