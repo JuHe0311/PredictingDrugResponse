@@ -81,11 +81,6 @@ Each file contains the implementation and relevant comments for usage. Details o
 ---
 
 ## Additional Notes
-- For more details about the models, their implementation, and their evaluation, refer to the [paper](#) and the comments within the code files.
+- For more details about the models, their implementation, and their evaluation, refer to the paper and the comments within the code files.
 - The performance metrics reported are based on stratified, nested 5x5-fold cross-validation.
 
----
-
-## Citation
-If you use this code, please cite:  
-*Hellmig et al., Predicting Drug Response with Multi-Task Gradient-Boosted Trees in Epilepsy.*
